@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 require_once plugin_dir_path(__FILE__) . 'includes/class-s3md-s3.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-github-updater.php';
 require_once plugin_dir_path(__FILE__) . 'includes/Parsedown.php';
 
 class S3_Markdown {
@@ -68,6 +69,9 @@ class S3_Markdown {
             return '<!-- s3md: plugin not configured -->';
         }
 
+        $prefix = trim($options['prefix'] ?? '', '/');
+        $s3_key = $prefix !== '' ? $prefix . '/' . $file : $file;
+
         $s3 = new S3MD_S3(
             $options['bucket'],
             $options['region'] ?? 'us-east-1',
@@ -75,7 +79,7 @@ class S3_Markdown {
             $options['secret_key']
         );
 
-        $markdown = $s3->get_object($file);
+        $markdown = $s3->get_object($s3_key);
 
         if (is_wp_error($markdown)) {
             return '<!-- s3md error: ' . esc_html($markdown->get_error_message()) . ' -->';
@@ -149,6 +153,15 @@ class S3_Markdown {
         );
 
         add_settings_field(
+            'prefix',
+            'Path Prefix',
+            array($this, 'render_text_field'),
+            's3-markdown',
+            's3md_main',
+            array('field' => 'prefix', 'description' => 'Optional key prefix, e.g. <code>documentation/website-docs</code>')
+        );
+
+        add_settings_field(
             'region',
             'Region',
             array($this, 'render_text_field'),
@@ -189,11 +202,15 @@ class S3_Markdown {
             esc_attr($field),
             esc_attr($value)
         );
+        if (!empty($args['description'])) {
+            printf('<p class="description">%s</p>', $args['description']);
+        }
     }
 
     public function sanitize_settings($input) {
         $sanitized = array();
         $sanitized['bucket']     = sanitize_text_field($input['bucket'] ?? '');
+        $sanitized['prefix']     = sanitize_text_field($input['prefix'] ?? '');
         $sanitized['region']     = sanitize_text_field($input['region'] ?? 'us-east-1');
         $sanitized['access_key'] = sanitize_text_field($input['access_key'] ?? '');
         $sanitized['secret_key'] = sanitize_text_field($input['secret_key'] ?? '');
@@ -245,3 +262,6 @@ class S3_Markdown {
 
 // Initialize the plugin
 S3_Markdown::get_instance();
+
+// Initialize GitHub updater
+new S3MD_GitHub_Updater(__FILE__, 'nonatech-uk/WP-S3-Markdown', '1.0.0');
