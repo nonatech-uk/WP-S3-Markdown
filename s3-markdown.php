@@ -2,7 +2,7 @@
 /**
  * Plugin Name: S3 Markdown
  * Description: Render markdown files from an AWS S3 bucket via shortcode
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: NonaTech Services Ltd
  * License: CC BY-NC 4.0
  */
@@ -264,4 +264,4 @@ class S3_Markdown {
 S3_Markdown::get_instance();
 
 // Initialize GitHub updater
-new S3MD_GitHub_Updater(__FILE__, 'nonatech-uk/WP-S3-Markdown', '1.0.0');
+new S3MD_GitHub_Updater(__FILE__, 'nonatech-uk/WP-S3-Markdown', '1.1.0');
