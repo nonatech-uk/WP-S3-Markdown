@@ -2,7 +2,7 @@
 /**
  * Plugin Name: S3 Markdown
  * Description: Render markdown files from an AWS S3 bucket via shortcode
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: NonaTech Services Ltd
  * License: CC BY-NC 4.0
  */
@@ -42,7 +42,12 @@ class S3_Markdown {
             'file' => 'index.md',
         ), $atts, 's3md');
 
-        $file = $atts['file'];
+        // Allow ?doc= query parameter to override the file attribute
+        if (isset($_GET['doc']) && $_GET['doc'] !== '') {
+            $file = sanitize_text_field($_GET['doc']);
+        } else {
+            $file = $atts['file'];
+        }
 
         // Validate file path — alphanumeric, hyphens, underscores, slashes, dots; must end .md
         if (!preg_match('/^[\w\-\/\.]+\.md$/i', $file)) {
@@ -88,7 +93,34 @@ class S3_Markdown {
         // Render markdown with safe mode
         $parsedown = new Parsedown();
         $parsedown->setSafeMode(true);
-        $html = '<div class="s3md-content">' . $parsedown->text($markdown) . '</div>';
+        $rendered = $parsedown->text($markdown);
+
+        // Rewrite internal .md links to use ?doc= query parameter
+        $rendered = preg_replace_callback(
+            '/href="((?!https?:\/\/|mailto:|#)[^"]*\.md)"/',
+            function ($matches) use ($file) {
+                $target = $matches[1];
+                // Resolve relative paths against current file's directory
+                $dir = dirname($file);
+                if ($dir !== '.' && strpos($target, '/') !== 0) {
+                    $target = $dir . '/' . $target;
+                }
+                // Normalise any foo/bar/../baz paths
+                $parts = array();
+                foreach (explode('/', $target) as $seg) {
+                    if ($seg === '..') {
+                        array_pop($parts);
+                    } elseif ($seg !== '.' && $seg !== '') {
+                        $parts[] = $seg;
+                    }
+                }
+                $target = implode('/', $parts);
+                return 'href="?doc=' . esc_attr($target) . '"';
+            },
+            $rendered
+        );
+
+        $html = '<div class="s3md-content">' . $rendered . '</div>';
 
         // Cache the rendered HTML for 24 hours
         set_transient($cache_key, $html, DAY_IN_SECONDS);
@@ -264,4 +296,4 @@ class S3_Markdown {
 S3_Markdown::get_instance();
 
 // Initialize GitHub updater
-new S3MD_GitHub_Updater(__FILE__, 'nonatech-uk/WP-S3-Markdown', '1.1.0');
+new S3MD_GitHub_Updater(__FILE__, 'nonatech-uk/WP-S3-Markdown', '1.2.0');
